@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minha Agenda Diária</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React e ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel (Para o navegador entender o código React/JSX) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-slate-100">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Ícones nativos (SVGs)
+        const CalendarIcon = (props) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={props.className}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>;
+        const ChevronLeft = (props) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={props.className}><polyline points="15 18 9 12 15 6"></polyline></svg>;
+        const ChevronRight = (props) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={props.className}><polyline points="9 18 15 12 9 6"></polyline></svg>;
+        const Clock = (props) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={props.className}><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>;
+        const Trash2 = (props) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={props.className}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>;
+        const Check = (props) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={props.className}><polyline points="20 6 9 17 4 12"></polyline></svg>;
+        const AlertCircle = (props) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={props.className}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>;
+        const Plus = (props) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={props.className}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>;
+        const FileText = (props) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={props.className}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>;
+        const BookOpen = (props) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={props.className}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>;
+        const Lightbulb = (props) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={props.className}><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5"></path><path d="M9 18h6"></path><path d="M10 22h4"></path></svg>;
+        const Target = (props) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={props.className}><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>;
+
+        const getLocalDateString = (date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        const generateWeekDays = (baseDateStr) => {
+            const days = [];
+            const [year, month, day] = baseDateStr.split('-').map(Number);
+            const baseDate = new Date(year, month - 1, day);
+
+            for (let i = -3; i <= 3; i++) {
+                const d = new Date(baseDate);
+                d.setDate(d.getDate() + i);
+                days.push({
+                    dateStr: getLocalDateString(d),
+                    dayName: d.toLocaleDateString('pt-PT', { weekday: 'short' }).substring(0, 3).replace('.', ''),
+                    dayNum: d.getDate()
+                });
+            }
+            return days;
+        };
+
+        const parseTimeToMinutes = (timeString) => {
+            if (!timeString) return 0;
+            const cleaned = timeString.toString().replace(/[^\d:]/g, '');
+            if (!cleaned) return 0;
+            let hours = 0, minutes = 0;
+            if (cleaned.includes(':')) {
+                const parts = cleaned.split(':');
+                hours = parseInt(parts[0], 10) || 0;
+                minutes = parseInt(parts[1], 10) || 0;
+            } else {
+                hours = parseInt(cleaned, 10) || 0;
+            }
+            return hours * 60 + minutes;
+        };
+
+        const formatTimeDisplay = (val) => {
+            if (!val) return '';
+            const num = parseInt(val.toString().replace(/[^\d]/g, ''), 10);
+            if (!isNaN(num) && num < 10 && val.toString().length === 1) return `0${num}`;
+            return val;
+        };
+
+        function App() {
+            const todayStr = getLocalDateString(new Date());
+
+            const [agendaData, setAgendaData] = useState({
+                [todayStr]: { blocks: [], notes: [], diary: { learned: '', improved: '' } }
+            });
+
+            const [currentDate, setCurrentDate] = useState(todayStr);
+
+            const [newTaskText, setNewTaskText] = useState({});
+            const [newBlockStart, setNewBlockStart] = useState('');
+            const [newBlockEnd, setNewBlockEnd] = useState('');
+            const [newNoteText, setNewNoteText] = useState('');
+
+            useEffect(() => {
+                setNewTaskText({});
+                setNewBlockStart('');
+                setNewBlockEnd('');
+                setNewNoteText('');
+            }, [currentDate]);
+
+            const currentDayData = agendaData[currentDate] || { blocks: [], notes: [], diary: { learned: '', improved: '' } };
+            const blocks = currentDayData.blocks;
+            const generalNotes = currentDayData.notes;
+            const diary = currentDayData.diary || { learned: '', improved: '' };
+
+            const setBlocks = (updater) => {
+                setAgendaData(prev => {
+                    const dayData = prev[currentDate] || { blocks: [], notes: [] };
+                    const newBlocks = typeof updater === 'function' ? updater(dayData.blocks) : updater;
+                    return { ...prev, [currentDate]: { ...dayData, blocks: newBlocks } };
+                });
+            };
+
+            const setGeneralNotes = (updater) => {
+                setAgendaData(prev => {
+                    const dayData = prev[currentDate] || { blocks: [], notes: [] };
+                    const newNotes = typeof updater === 'function' ? updater(dayData.notes) : updater;
+                    return { ...prev, [currentDate]: { ...dayData, notes: newNotes } };
+                });
+            };
+
+            const changeDate = (offsetDays) => {
+                const [year, month, day] = currentDate.split('-').map(Number);
+                const date = new Date(year, month - 1, day);
+                date.setDate(date.getDate() + offsetDays);
+                setCurrentDate(getLocalDateString(date));
+            };
+
+            const goToToday = () => setCurrentDate(getLocalDateString(new Date()));
+
+            const formatMonthYear = (dateStr) => {
+                const [year, month, day] = dateStr.split('-').map(Number);
+                const date = new Date(year, month - 1, day);
+                return date.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' });
+            };
+
+            const formatFullDate = (dateStr) => {
+                const [year, month, day] = dateStr.split('-').map(Number);
+                const date = new Date(year, month - 1, day);
+                return date.toLocaleDateString('pt-PT', { weekday: 'short', day: 'numeric', month: 'long' });
+            };
+
+            const weekDays = generateWeekDays(currentDate);
+
+            const toggleTaskCompletion = (blockId, taskId) => {
+                setBlocks(blocks.map(block => {
+                    if (block.id === blockId) {
+                        return {
+                            ...block,
+                            tasks: block.tasks.map(task => 
+                                task.id === taskId ? { ...task, isCompleted: !task.isCompleted } : task
+                            )
+                        };
+                    }
+                    return block;
+                }));
+            };
+
+            const toggleTaskImportance = (blockId, taskId) => {
+                setBlocks(blocks.map(block => {
+                    if (block.id === blockId) {
+                        return {
+                            ...block,
+                            tasks: block.tasks.map(task => 
+                                task.id === taskId ? { ...task, isImportant: !task.isImportant } : task
+                            )
+                        };
+                    }
+                    return block;
+                }));
+            };
+
+            const addTask = (blockId) => {
+                const text = newTaskText[blockId];
+                if (!text || text.trim() === '') return;
+
+                setBlocks(blocks.map(block => {
+                    if (block.id === blockId) {
+                        return {
+                            ...block,
+                            tasks: [...block.tasks, { id: Date.now(), text, isCompleted: false, isImportant: false }]
+                        };
+                    }
+                    return block;
+                }));
+                setNewTaskText({ ...newTaskText, [blockId]: '' });
+            };
+
+            const sortBlocks = () => {
+                setBlocks(prevBlocks => {
+                    return [...prevBlocks].sort((a, b) => {
+                        const startA = parseTimeToMinutes(a.startTime);
+                        const startB = parseTimeToMinutes(b.startTime);
+                        if (startA === startB) {
+                            return parseTimeToMinutes(a.endTime) - parseTimeToMinutes(b.endTime);
+                        }
+                        return startA - startB;
+                    });
+                });
+            };
+
+            const updateBlockTime = (blockId, field, newValue) => {
+                setBlocks(prevBlocks => prevBlocks.map(block => 
+                    block.id === blockId ? { ...block, [field]: newValue } : block
+                ));
+            };
+
+            const handleBlockTimeBlur = (blockId, field, value) => {
+                updateBlockTime(blockId, field, formatTimeDisplay(value));
+                sortBlocks();
+            };
+
+            const addBlock = () => {
+                if (!newBlockStart || !newBlockEnd) return;
+                
+                const newBlock = {
+                    id: Date.now(),
+                    startTime: formatTimeDisplay(newBlockStart),
+                    endTime: formatTimeDisplay(newBlockEnd),
+                    tasks: []
+                };
+                
+                setBlocks(prevBlocks => {
+                    const newBlocks = [...prevBlocks, newBlock].sort((a, b) => {
+                        const startA = parseTimeToMinutes(a.startTime);
+                        const startB = parseTimeToMinutes(b.startTime);
+                        if (startA === startB) {
+                            return parseTimeToMinutes(a.endTime) - parseTimeToMinutes(b.endTime);
+                        }
+                        return startA - startB;
+                    });
+                    return newBlocks;
+                });
+
+                setNewBlockStart('');
+                setNewBlockEnd('');
+            };
+
+            const deleteBlock = (blockId) => {
+                setBlocks(blocks.filter(block => block.id !== blockId));
+            };
+
+            const deleteTask = (blockId, taskId) => {
+                setBlocks(blocks.map(block => {
+                    if (block.id === blockId) {
+                        return { ...block, tasks: block.tasks.filter(t => t.id !== taskId) };
+                    }
+                    return block;
+                }));
+            };
+
+            const addNote = () => {
+                if (!newNoteText.trim()) return;
+                setGeneralNotes([...generalNotes, { id: Date.now(), text: newNoteText }]);
+                setNewNoteText('');
+            };
+
+            const deleteNote = (noteId) => {
+                setGeneralNotes(generalNotes.filter(n => n.id !== noteId));
+            };
+
+            const updateDiary = (field, value) => {
+                setAgendaData(prev => {
+                    const dayData = prev[currentDate] || { blocks: [], notes: [], diary: { learned: '', improved: '' } };
+                    const currentDiary = dayData.diary || { learned: '', improved: '' };
+                    return {
+                        ...prev,
+                        [currentDate]: {
+                            ...dayData,
+                            diary: { ...currentDiary, [field]: value }
+                        }
+                    };
+                });
+            };
+
+            return (
+                <div className="min-h-screen text-slate-800 p-4 md:p-8 font-sans">
+                    <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
+                        
+                        {/* Cabeçalho da Agenda */}
+                        <div className="bg-indigo-600 text-white">
+                            <div className="p-6 pb-5">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h1 className="text-2xl font-bold flex items-center gap-2">
+                                        <CalendarIcon className="w-6 h-6" />
+                                        Minha Agenda
+                                    </h1>
+                                    {currentDate !== todayStr && (
+                                        <button 
+                                            onClick={goToToday}
+                                            className="px-4 py-1.5 bg-indigo-500 hover:bg-indigo-400 rounded-full text-xs font-semibold transition-colors shadow-sm flex items-center gap-1"
+                                        >
+                                            Ir para Hoje
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Navegação Estilo Agenda */}
+                                <div className="mb-3 flex items-center justify-between px-1">
+                                    <button onClick={() => changeDate(-7)} className="p-1.5 hover:bg-indigo-500 rounded-lg transition-colors text-indigo-200 hover:text-white" title="Semana anterior">
+                                        <ChevronLeft className="w-5 h-5" />
+                                    </button>
+                                    
+                                    <div className="flex flex-col items-center relative group cursor-pointer">
+                                        <span className="text-lg font-medium capitalize tracking-wide">
+                                            {formatMonthYear(currentDate)}
+                                        </span>
+                                        <input 
+                                            type="date" 
+                                            value={currentDate}
+                                            onChange={(e) => setCurrentDate(e.target.value)}
+                                            className="absolute inset-0 opacity-0 cursor-pointer"
+                                        />
+                                    </div>
+
+                                    <button onClick={() => changeDate(7)} className="p-1.5 hover:bg-indigo-500 rounded-lg transition-colors text-indigo-200 hover:text-white" title="Próxima semana">
+                                        <ChevronRight className="w-5 h-5" />
+                                    </button>
+                                </div>
+
+                                {/* Carrossel de Dias */}
+                                <div className="flex justify-between items-center bg-indigo-700/40 rounded-2xl p-2 backdrop-blur-sm border border-indigo-500/30">
+                                    {weekDays.map((day) => {
+                                        const isSelected = day.dateStr === currentDate;
+                                        const isToday = day.dateStr === todayStr;
+                                        return (
+                                            <button
+                                                key={day.dateStr}
+                                                onClick={() => setCurrentDate(day.dateStr)}
+                                                className={`flex flex-col items-center justify-center w-11 h-14 md:w-14 md:h-16 rounded-xl transition-all duration-200 ${
+                                                    isSelected 
+                                                        ? 'bg-white text-indigo-600 shadow-lg transform scale-105' 
+                                                        : 'text-indigo-100 hover:bg-indigo-500/60 hover:text-white'
+                                                } ${isToday && !isSelected ? 'ring-1 ring-indigo-300 ring-inset' : ''}`}
+                                            >
+                                                <span className={`text-xs md:text-sm font-medium capitalize ${isSelected ? 'text-indigo-500' : 'opacity-80'}`}>
+                                                    {day.dayName}
+                                                </span>
+                                                <span className={`text-lg md:text-xl font-bold ${isSelected ? 'text-indigo-700' : ''}`}>
+                                                    {day.dayNum}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-6">
+                            {blocks.length === 0 ? (
+                                <div className="text-center py-12 text-slate-400">
+                                    <Clock className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                                    <p>Nenhum compromisso para este dia.</p>
+                                    <p className="text-sm mt-1">Adicione um novo bloco de tempo abaixo.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-8">
+                                    {blocks.map((block) => (
+                                        <div key={block.id} className="relative flex gap-4 group">
+                                            <div className="flex flex-col items-center w-16 shrink-0">
+                                                <div className="flex items-center justify-center -mr-1">
+                                                    <input 
+                                                        type="text" 
+                                                        value={block.startTime}
+                                                        onChange={(e) => updateBlockTime(block.id, 'startTime', e.target.value)}
+                                                        onBlur={(e) => handleBlockTimeBlur(block.id, 'startTime', e.target.value)}
+                                                        className="w-10 text-right text-sm font-bold text-indigo-700 bg-transparent border border-transparent hover:border-indigo-200 focus:border-indigo-400 focus:bg-white focus:outline-none rounded px-0.5 transition-colors"
+                                                    />
+                                                    <span className="text-sm font-bold text-indigo-700">h</span>
+                                                </div>
+
+                                                <div className="w-0.5 h-full bg-indigo-200 my-1 rounded-full relative">
+                                                    <div className="absolute top-0 w-2 h-0.5 bg-indigo-400 -left-[3px]"></div>
+                                                    <div className="absolute bottom-0 w-2 h-0.5 bg-indigo-400 -left-[3px]"></div>
+                                                </div>
+
+                                                <div className="flex items-center justify-center -mr-1">
+                                                    <input 
+                                                        type="text" 
+                                                        value={block.endTime}
+                                                        onChange={(e) => updateBlockTime(block.id, 'endTime', e.target.value)}
+                                                        onBlur={(e) => handleBlockTimeBlur(block.id, 'endTime', e.target.value)}
+                                                        className="w-10 text-right text-sm font-bold text-indigo-700 bg-transparent border border-transparent hover:border-indigo-200 focus:border-indigo-400 focus:bg-white focus:outline-none rounded px-0.5 transition-colors"
+                                                    />
+                                                    <span className="text-sm font-bold text-indigo-700">h</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex-1 bg-slate-50 rounded-xl p-4 border border-slate-100 shadow-sm relative">
+                                                <button 
+                                                    onClick={() => deleteBlock(block.id)}
+                                                    className="absolute top-2 right-2 text-slate-300 hover:text-red-500 transition-colors md:opacity-0 md:group-hover:opacity-100"
+                                                    title="Excluir bloco"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+
+                                                <ul className="space-y-3">
+                                                    {block.tasks.map(task => (
+                                                        <li key={task.id} className="flex items-start gap-3 group/task">
+                                                            <button
+                                                                onClick={() => toggleTaskCompletion(block.id, task.id)}
+                                                                className={`mt-1 shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-colors ${
+                                                                    task.isCompleted 
+                                                                        ? 'bg-indigo-500 border-indigo-500 text-white' 
+                                                                        : 'border-slate-300 hover:border-indigo-400 text-transparent hover:text-indigo-200'
+                                                                }`}
+                                                            >
+                                                                <Check className="w-3.5 h-3.5" />
+                                                            </button>
+                                                            
+                                                            <div className="flex-1 flex items-center flex-wrap gap-2">
+                                                                <span 
+                                                                    className={`text-base transition-all ${
+                                                                        task.isCompleted ? 'line-through text-slate-400' : 'text-slate-700'
+                                                                    }`}
+                                                                >
+                                                                    {task.text}
+                                                                </span>
+                                                                
+                                                                {task.isImportant && (
+                                                                    <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
+                                                                        <AlertCircle className="w-3 h-3" />
+                                                                        Importante
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            <div className="flex items-center gap-1 md:opacity-0 md:group-hover/task:opacity-100 transition-opacity">
+                                                                <button 
+                                                                    onClick={() => toggleTaskImportance(block.id, task.id)}
+                                                                    className={`p-1 rounded ${task.isImportant ? 'text-amber-500' : 'text-slate-300 hover:text-amber-500'}`}
+                                                                    title="Marcar como importante"
+                                                                >
+                                                                    <AlertCircle className="w-4 h-4" />
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => deleteTask(block.id, task.id)}
+                                                                    className="p-1 rounded text-slate-300 hover:text-red-500"
+                                                                    title="Excluir tarefa"
+                                                                >
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+
+                                                <div className="mt-4 flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Adicionar tarefa..."
+                                                        value={newTaskText[block.id] || ''}
+                                                        onChange={(e) => setNewTaskText({ ...newTaskText, [block.id]: e.target.value })}
+                                                        onKeyDown={(e) => e.key === 'Enter' && addTask(block.id)}
+                                                        className="flex-1 text-sm bg-white border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                                                    />
+                                                    <button 
+                                                        onClick={() => addTask(block.id)}
+                                                        className="p-1.5 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors"
+                                                    >
+                                                        <Plus className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div className="mt-8 pt-6 border-t border-slate-200 flex flex-wrap gap-3 items-center">
+                                <span className="text-sm font-medium text-slate-600">Novo bloco:</span>
+                                <input 
+                                    type="text" 
+                                    placeholder="Início (ex: 08)" 
+                                    value={newBlockStart}
+                                    onChange={e => setNewBlockStart(e.target.value)}
+                                    className="w-32 text-sm bg-white border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                                />
+                                <span className="text-slate-400">-</span>
+                                <input 
+                                    type="text" 
+                                    placeholder="Fim (ex: 12)" 
+                                    value={newBlockEnd}
+                                    onChange={e => setNewBlockEnd(e.target.value)}
+                                    className="w-32 text-sm bg-white border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                                />
+                                <button 
+                                    onClick={addBlock}
+                                    className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-1"
+                                >
+                                    <Plus className="w-4 h-4" /> Bloco
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Secção de Notas Gerais */}
+                        <div className="bg-amber-50 p-6 border-t border-amber-100">
+                            <h2 className="text-lg font-semibold text-amber-900 flex items-center gap-2 mb-4">
+                                <FileText className="w-5 h-5" />
+                                Lembretes para {formatFullDate(currentDate).split(',')[0]}
+                            </h2>
+                            
+                            {generalNotes.length > 0 && (
+                                <ul className="space-y-2 mb-4">
+                                    {generalNotes.map(note => (
+                                        <li key={note.id} className="flex items-center gap-2 text-amber-800 bg-white/50 px-3 py-2 rounded-lg border border-amber-200 group">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"></span>
+                                            <span className="flex-1">{note.text}</span>
+                                            <button 
+                                                onClick={() => deleteNote(note.id)}
+                                                className="md:opacity-0 md:group-hover:opacity-100 p-1 text-amber-400 hover:text-red-500 transition-all"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="Adicionar um lembrete geral..."
+                                    value={newNoteText}
+                                    onChange={(e) => setNewNoteText(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && addNote()}
+                                    className="flex-1 text-sm bg-white border border-amber-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                                />
+                                <button 
+                                    onClick={addNote}
+                                    className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition-colors"
+                                >
+                                    Adicionar
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Diário de Performance */}
+                        <div className="bg-emerald-50 p-6 border-t border-emerald-100">
+                            <h2 className="text-lg font-semibold text-emerald-900 flex items-center gap-2 mb-4">
+                                <BookOpen className="w-5 h-5" />
+                                Diário de Performance
+                            </h2>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-emerald-800 mb-2 flex items-center gap-1.5">
+                                        <Lightbulb className="w-4 h-4 text-emerald-600" /> 
+                                        1. O que eu aprendi hoje?
+                                    </label>
+                                    <textarea
+                                        value={diary.learned}
+                                        onChange={(e) => updateDiary('learned', e.target.value)}
+                                        placeholder="Escreva as suas aprendizagens e reflexões positivas..."
+                                        className="w-full text-sm bg-white border border-emerald-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 min-h-[80px] resize-y"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-emerald-800 mb-2 flex items-center gap-1.5">
+                                        <Target className="w-4 h-4 text-emerald-600" /> 
+                                        2. No que eu vacilei e poderia ter feito melhor?
+                                    </label>
+                                    <textarea
+                                        value={diary.improved}
+                                        onChange={(e) => updateDiary('improved', e.target.value)}
+                                        placeholder="Escreva onde falhou e como pode melhorar amanhã..."
+                                        className="w-full text-sm bg-white border border-emerald-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 min-h-[80px] resize-y"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
