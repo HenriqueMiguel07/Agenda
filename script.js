@@ -1,17 +1,13 @@
-// --- LÓGICA DE ARMAZENAMENTO (O "HD" do seu App) ---
+// script.js
 
-// Função para salvar qualquer dado (Blocos, Gastos, etc)
-export const salvarNoCelular = (chave, dados) => {
-    // Transformamos o objeto em string para o navegador aceitar
-    localStorage.setItem(chave, JSON.stringify(dados));
+// Função para salvar (chame sempre que o valor mudar)
+export const salvarDados = (valor) => {
+    localStorage.setItem('dados_zenblocks', JSON.stringify(valor));
+    console.log("Dados salvos no localstorage!");
 };
 
-// Função para buscar os dados quando o app abrir
-export const carregarDoCelular = (chave) => {
-    const dados = localStorage.getItem(chave);
+// Função para carregar (chame ao iniciar o app)
+export const carregarDados = () => {
+    const dados = localStorage.getItem('dados_zenblocks');
     return dados ? JSON.parse(dados) : null;
 };
-
-// Exemplo de uso para o seu ZenBlocks:
-// const meusGastos = [{id: 1, nome: 'Ração', valor: 150}];
-// salvarNoCelular('gastos_pet', meusGastos);
