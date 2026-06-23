@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="react.min.js"></script>
+<script src="react-dom.min.js"></script>
+<script src="babel.min.js"></script>
+</head>
+<body>
+<div id="err" style="color:red;padding:20px;font-family:monospace;white-space:pre"></div>
+<div id="r"></div>
+<script>
+window.onerror = function(msg,src,line,col,err) {
+  document.getElementById('err').textContent = 'ERRO: ' + msg + '\nLinha: ' + line + '\n' + (err?err.stack:'');
+};
+</script>
+<script type="text/babel" data-presets="react">
+const { useState } = React;
+function App() {
+  return React.createElement('h1', {style:{color:'green',padding:20}}, 'React funciona!');
+}
+try {
+  ReactDOM.createRoot(document.getElementById('r')).render(React.createElement(App));
+} catch(e) {
+  document.getElementById('err').textContent = 'CATCH: ' + e.message + '\n' + e.stack;
+}
+</script>
+</body>
+</html>

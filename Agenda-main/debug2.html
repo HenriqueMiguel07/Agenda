@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="tailwind.js"></script>
+<script src="react.min.js"></script>
+<script src="react-dom.min.js"></script>
+<script src="babel.min.js"></script>
+</head>
+<body>
+<div id="err" style="color:red;padding:20px;font-family:monospace;font-size:12px;white-space:pre-wrap;background:#fff0f0"></div>
+<div id="r"><p style="padding:20px;color:#666">A carregar...</p></div>
+<script>
+window.addEventListener('error', function(e) {
+  document.getElementById('err').textContent += 'ERRO: ' + e.message + ' (linha ' + e.lineno + ')\n';
+});
+</script>
+<script type="text/babel" data-presets="react">
+window.__babelReady = true;
+const { useState } = React;
+
+const THEMES = {
+  indigo: { p:'#4f46e5', dk:'#3730a3', lt:'#e0e7ff', tx:'#4338ca', label:'Índigo' },
+};
+
+function App() {
+  const [tab, setTab] = useState('agenda');
+  const T = THEMES.indigo;
+  return (
+    <div style={{padding:20}}>
+      <h1 style={{color:T.p, fontWeight:'bold', fontSize:24}}>Minha Agenda - Teste</h1>
+      <p>Aba atual: {tab}</p>
+      <button onClick={()=>setTab('calendar')} style={{background:T.p,color:'#fff',padding:'8px 16px',borderRadius:8,marginRight:8}}>
+        Calendário
+      </button>
+      <button onClick={()=>setTab('agenda')} style={{background:T.dk,color:'#fff',padding:'8px 16px',borderRadius:8}}>
+        Agenda
+      </button>
+    </div>
+  );
+}
+
+try {
+  ReactDOM.createRoot(document.getElementById('r')).render(<App/>);
+  document.getElementById('err').textContent = '';
+} catch(e) {
+  document.getElementById('err').textContent = 'Erro: ' + e.message + '\n' + e.stack;
+}
+</script>
+</body>
+</html>
