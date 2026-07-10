@@ -118,6 +118,8 @@ function AgendaTab({ agendaData, setAgendaData, currentDate, T, BG }) {
   const [blkStart,  setBlkStart]  = useState('');
   const [blkEnd,    setBlkEnd]    = useState('');
   const [blkTitle,  setBlkTitle]  = useState('');
+  const [blkTasks,  setBlkTasks]  = useState([]); // tarefas iniciais do bloco
+  const [blkNewT,   setBlkNewT]   = useState(''); // input da nova tarefa no formulário
   const [recType,   setRecType]   = useState('none');
   const [recModal,  setRecModal]  = useState(false);
   const [pending,   setPending]   = useState(null);
@@ -126,7 +128,7 @@ function AgendaTab({ agendaData, setAgendaData, currentDate, T, BG }) {
   const [movingBlk, setMovingBlk] = useState(null); // bid being moved to day
 
   useEffect(() => {
-    setNewTask({}); setBlkStart(''); setBlkEnd(''); setBlkTitle(''); setRecType('none');
+    setNewTask({}); setBlkStart(''); setBlkEnd(''); setBlkTitle(''); setBlkTasks([]); setBlkNewT(''); setRecType('none');
   }, [currentDate]);
 
   const empty = { blocks:[], notes:[], diary:{learned:'',improved:''} };
@@ -139,11 +141,18 @@ function AgendaTab({ agendaData, setAgendaData, currentDate, T, BG }) {
     return { ...prev, [currentDate]: { ...d, blocks: fn(d.blocks||[]) } };
   });
 
+  const addBlkTask = () => {
+    if (!blkNewT.trim()) return;
+    setBlkTasks(p=>[...p, {id:Date.now(), text:blkNewT.trim(), isCompleted:false, isImportant:false}]);
+    setBlkNewT('');
+  };
+  const delBlkTask = (id) => setBlkTasks(p=>p.filter(t=>t.id!==id));
+
   const addBlock = () => {
     if (!blkStart || !blkEnd) return;
-    const blk = { id:Date.now(), title:blkTitle.trim(), startTime:fmtTime(blkStart), endTime:fmtTime(blkEnd), tasks:[], recId:null };
+    const blk = { id:Date.now(), title:blkTitle.trim(), startTime:fmtTime(blkStart), endTime:fmtTime(blkEnd), tasks:blkTasks, recId:null };
     if (recType !== 'none') { setPending(blk); setRecModal(true); }
-    else { updBlocks(p=>sortBlks([...p,blk])); setBlkStart(''); setBlkEnd(''); setBlkTitle(''); }
+    else { updBlocks(p=>sortBlks([...p,blk])); setBlkStart(''); setBlkEnd(''); setBlkTitle(''); setBlkTasks([]); setBlkNewT(''); }
   };
 
   const confirmRec = () => {
@@ -157,7 +166,7 @@ function AgendaTab({ agendaData, setAgendaData, currentDate, T, BG }) {
         return { ...prev, [ds]: { ...d, blocks: sortBlks([...(d.blocks||[]), nb]) } };
       });
     });
-    setPending(null); setRecModal(false); setBlkStart(''); setBlkEnd(''); setBlkTitle(''); setRecType('none');
+    setPending(null); setRecModal(false); setBlkStart(''); setBlkEnd(''); setBlkTitle(''); setBlkTasks([]); setBlkNewT(''); setRecType('none');
   };
 
   const delBlock  = (id) => updBlocks(p=>p.filter(b=>b.id!==id));
@@ -370,6 +379,31 @@ function AgendaTab({ agendaData, setAgendaData, currentDate, T, BG }) {
               value={blkTitle} onChange={e=>setBlkTitle(e.target.value)}
               className="w-full text-sm border rounded-lg px-3 py-2 focus:outline-none"
               style={{background:BG.inputBg,color:BG.text,borderColor:BG.inputBorder}}/>
+            {/* Tarefas iniciais */}
+            {blkTasks.length>0 && (
+              <ul className="space-y-1">
+                {blkTasks.map(t=>(
+                  <li key={t.id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm"
+                    style={{background:BG.blockBg,color:BG.text}}>
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{background:T.p}}/>
+                    <span className="flex-1">{t.text}</span>
+                    <button onClick={()=>delBlkTask(t.id)} className="hover:text-red-400 transition-colors shrink-0" style={{color:BG.muted}}>
+                      <IcoX className="w-3.5 h-3.5"/>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex gap-2">
+              <input type="text" placeholder="Adicionar tarefa ao bloco..."
+                value={blkNewT} onChange={e=>setBlkNewT(e.target.value)}
+                onKeyDown={e=>e.key==='Enter'&&addBlkTask()}
+                className="flex-1 text-sm border rounded-lg px-3 py-2 focus:outline-none"
+                style={{background:BG.inputBg,color:BG.text,borderColor:BG.inputBorder}}/>
+              <button onClick={addBlkTask} className="p-2 rounded-lg" style={{background:BG.blockBg,color:T.p}}>
+                <IcoPlus className="w-4 h-4"/>
+              </button>
+            </div>
             <div className="flex flex-wrap gap-3 items-end">
               <div>
                 <label className="block text-xs mb-1" style={{color:BG.muted}}>Início (h)</label>
