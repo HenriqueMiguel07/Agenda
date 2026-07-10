@@ -126,6 +126,7 @@ function AgendaTab({ agendaData, setAgendaData, currentDate, T, BG }) {
   const [editing,   setEditing]   = useState(null);
   const [movingTask,setMovingTask]= useState(null); // {bid, tid}
   const [movingBlk, setMovingBlk] = useState(null); // bid being moved to day
+  const [delRecMenu,setDelRecMenu]= useState(null); // {bid, recId} — menu apagar recorrente
 
   useEffect(() => {
     setNewTask({}); setBlkStart(''); setBlkEnd(''); setBlkTitle(''); setBlkTasks([]); setBlkNewT(''); setRecType('none');
@@ -169,7 +170,23 @@ function AgendaTab({ agendaData, setAgendaData, currentDate, T, BG }) {
     setPending(null); setRecModal(false); setBlkStart(''); setBlkEnd(''); setBlkTitle(''); setBlkTasks([]); setBlkNewT(''); setRecType('none');
   };
 
-  const delBlock  = (id) => updBlocks(p=>p.filter(b=>b.id!==id));
+  const delBlock       = (id) => updBlocks(p=>p.filter(b=>b.id!==id));
+  const delRecSingle   = (bid) => { delBlock(bid); setDelRecMenu(null); };
+  const delRecFuture   = (bid, recId) => {
+    setAgendaData(prev => {
+      const next = {};
+      Object.entries(prev).forEach(([ds, d]) => {
+        if (ds >= currentDate) {
+          const blocks = (d.blocks||[]).filter(b => !(b.recId===recId && (ds>currentDate || b.id===bid)));
+          next[ds] = { ...d, blocks };
+        } else {
+          next[ds] = d;
+        }
+      });
+      return next;
+    });
+    setDelRecMenu(null);
+  };
   const togTask   = (bid,tid) => updBlocks(p=>p.map(b=>b.id===bid?{...b,tasks:b.tasks.map(t=>t.id===tid?{...t,isCompleted:!t.isCompleted}:t)}:b));
   const togImp    = (bid,tid) => updBlocks(p=>p.map(b=>b.id===bid?{...b,tasks:b.tasks.map(t=>t.id===tid?{...t,isImportant:!t.isImportant}:t)}:b));
   const addTask   = (bid) => {
@@ -286,9 +303,29 @@ function AgendaTab({ agendaData, setAgendaData, currentDate, T, BG }) {
                         </div>
                       )}
                     </div>
-                    <button onClick={()=>delBlock(blk.id)} className="text-slate-300 hover:text-red-400 transition-colors">
-                      <IcoTrash className="w-4 h-4"/>
-                    </button>
+                    <div className="relative">
+                      <button onClick={()=>setDelRecMenu(blk.recId ? (delRecMenu?.bid===blk.id?null:{bid:blk.id,recId:blk.recId}) : null) || (!blk.recId && delBlock(blk.id))}
+                        className="text-slate-300 hover:text-red-400 transition-colors">
+                        <IcoTrash className="w-4 h-4"/>
+                      </button>
+                      {delRecMenu?.bid===blk.id && (
+                        <div className="absolute right-0 top-6 z-20 rounded-xl shadow-xl border p-3 min-w-[210px]"
+                          style={{background:BG.cardBg,borderColor:BG.inputBorder}}>
+                          <p className="text-xs font-semibold mb-2" style={{color:BG.muted}}>Apagar recorrência:</p>
+                          <button onClick={()=>delRecSingle(blk.id)}
+                            className="w-full text-left text-sm px-3 py-2 rounded-lg mb-1 hover:opacity-80 transition-opacity"
+                            style={{background:BG.blockBg,color:BG.text}}>
+                            Só este bloco
+                          </button>
+                          <button onClick={()=>delRecFuture(blk.id, blk.recId)}
+                            className="w-full text-left text-sm px-3 py-2 rounded-lg hover:opacity-80 transition-opacity"
+                            style={{background:'#fee2e2',color:'#b91c1c'}}>
+                            Este e todos os futuros
+                          </button>
+                          <button onClick={()=>setDelRecMenu(null)} className="mt-2 text-xs w-full text-center" style={{color:BG.muted}}>Cancelar</button>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Tarefas */}
