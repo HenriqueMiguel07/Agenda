@@ -199,6 +199,15 @@ function AgendaTab({ agendaData, setAgendaData, currentDate, T, BG }) {
     setNewTask(p=>({...p,[bid]:''}));
   };
   const delTask   = (bid,tid) => updBlocks(p=>p.map(b=>b.id===bid?{...b,tasks:b.tasks.filter(t=>t.id!==tid)}:b));
+  const moveTaskOrder = (bid,tid,dir) => updBlocks(p=>p.map(b=>{
+    if (b.id!==bid) return b;
+    const tasks=[...b.tasks];
+    const i=tasks.findIndex(t=>t.id===tid);
+    const j=i+dir;
+    if (j<0||j>=tasks.length) return b;
+    [tasks[i],tasks[j]]=[tasks[j],tasks[i]];
+    return {...b,tasks};
+  }));
   const editTask  = (bid,tid,txt) => updBlocks(p=>p.map(b=>b.id===bid?{...b,tasks:b.tasks.map(t=>t.id===tid?{...t,text:txt}:t)}:b));
   const setTime   = (bid,f,v) => updBlocks(p=>p.map(b=>b.id===bid?{...b,[f]:v}:b));
   const blurTime  = (bid,f,v) => { setTime(bid,f,fmtTime(v)); updBlocks(p=>sortBlks(p)); };
@@ -377,6 +386,15 @@ function AgendaTab({ agendaData, setAgendaData, currentDate, T, BG }) {
                             )}
                             {!isEdit && (
                               <>
+                                {/* Reordenar */}
+                                <div className="flex flex-col shrink-0" style={{gap:1}}>
+                                  <button onClick={()=>moveTaskOrder(blk.id,t.id,-1)}
+                                    className="text-slate-200 hover:text-blue-400 transition-colors leading-none"
+                                    style={{fontSize:10}}>▲</button>
+                                  <button onClick={()=>moveTaskOrder(blk.id,t.id,1)}
+                                    className="text-slate-200 hover:text-blue-400 transition-colors leading-none"
+                                    style={{fontSize:10}}>▼</button>
+                                </div>
                                 {t.isImportant && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full shrink-0">!</span>}
                                 {(t.notes||[]).length>0 && !openTaskN[t.id] && (
                                   <span className="text-[10px] px-1 py-0.5 rounded-full font-semibold shrink-0"
