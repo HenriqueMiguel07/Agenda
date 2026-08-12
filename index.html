@@ -127,9 +127,9 @@ function AgendaTab({ agendaData, setAgendaData, currentDate, T, BG }) {
   const [movingTask,setMovingTask]= useState(null); // {bid, tid}
   const [movingBlk, setMovingBlk] = useState(null); // bid being moved to day
   const [delRecMenu,setDelRecMenu]= useState(null); // {bid, recId} — menu apagar recorrente
-  const [openNotes, setOpenNotes] = useState({});   // bid → bool
-  const [newBlkNote,setNewBlkNote]= useState({});   // bid → text
-  const [editBlkN,  setEditBlkN]  = useState(null); // {bid, nid, val}
+  const [openTaskN, setOpenTaskN] = useState({});   // tid → bool
+  const [newTaskN,  setNewTaskN]  = useState({});   // tid → text
+  const [editTaskN, setEditTaskN] = useState(null); // {bid, tid, nid, val}
 
   useEffect(() => {
     setNewTask({}); setBlkStart(''); setBlkEnd(''); setBlkTitle(''); setBlkTasks([]); setBlkNewT(''); setRecType('none');
@@ -216,18 +216,19 @@ function AgendaTab({ agendaData, setAgendaData, currentDate, T, BG }) {
     setMovingTask(null);
   };
 
-  const toggleNotes  = (bid) => setOpenNotes(p=>({...p,[bid]:!p[bid]}));
-  const addBlkNote   = (bid) => {
-    const txt = (newBlkNote[bid]||'').trim();
+  const toggleTaskN  = (tid) => setOpenTaskN(p=>({...p,[tid]:!p[tid]}));
+  const addTaskNote  = (bid,tid) => {
+    const txt=(newTaskN[tid]||'').trim();
     if (!txt) return;
-    updBlocks(p=>p.map(b=>b.id===bid?{...b,blkNotes:[...(b.blkNotes||[]),{id:Date.now(),text:txt}]}:b));
-    setNewBlkNote(p=>({...p,[bid]:''}));
+    updBlocks(p=>p.map(b=>b.id===bid?{...b,tasks:b.tasks.map(t=>t.id===tid?{...t,notes:[...(t.notes||[]),{id:Date.now(),text:txt}]}:t)}:b));
+    setNewTaskN(p=>({...p,[tid]:''}));
   };
-  const delBlkNote   = (bid,nid) => updBlocks(p=>p.map(b=>b.id===bid?{...b,blkNotes:(b.blkNotes||[]).filter(n=>n.id!==nid)}:b));
-  const saveBlkNote  = () => {
-    if (!editBlkN) return;
-    updBlocks(p=>p.map(b=>b.id===editBlkN.bid?{...b,blkNotes:(b.blkNotes||[]).map(n=>n.id===editBlkN.nid?{...n,text:editBlkN.val}:n)}:b));
-    setEditBlkN(null);
+  const delTaskNote  = (bid,tid,nid) => updBlocks(p=>p.map(b=>b.id===bid?{...b,tasks:b.tasks.map(t=>t.id===tid?{...t,notes:(t.notes||[]).filter(n=>n.id!==nid)}:t)}:b));
+  const saveTaskNote = () => {
+    if (!editTaskN) return;
+    const {bid,tid,nid,val} = editTaskN;
+    updBlocks(p=>p.map(b=>b.id===bid?{...b,tasks:b.tasks.map(t=>t.id===tid?{...t,notes:(t.notes||[]).map(n=>n.id===nid?{...n,text:val}:n)}:t)}:b));
+    setEditTaskN(null);
   };
 
   const moveBlockToDay = (bid, targetDate) => {
@@ -377,6 +378,15 @@ function AgendaTab({ agendaData, setAgendaData, currentDate, T, BG }) {
                             {!isEdit && (
                               <>
                                 {t.isImportant && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full shrink-0">!</span>}
+                                {(t.notes||[]).length>0 && !openTaskN[t.id] && (
+                                  <span className="text-[10px] px-1 py-0.5 rounded-full font-semibold shrink-0"
+                                    style={{background:T.lt,color:T.tx}}>{(t.notes||[]).length}</span>
+                                )}
+                                <button onClick={()=>toggleTaskN(t.id)} title="Anotações"
+                                  className="transition-colors shrink-0"
+                                  style={{color:openTaskN[t.id]?T.p:'#cbd5e1'}}>
+                                  <IcoBulb className="w-4 h-4"/>
+                                </button>
                                 {blks.length>1 && (
                                   <button onClick={()=>setMovingTask(isMov?null:{bid:blk.id,tid:t.id})}
                                     title="Mover para outro bloco"
@@ -395,6 +405,54 @@ function AgendaTab({ agendaData, setAgendaData, currentDate, T, BG }) {
                               </>
                             )}
                           </div>
+                          {/* Painel notas da tarefa */}
+                          {!isEdit && openTaskN[t.id] && (
+                            <div className="ml-7 rounded-xl border p-3 flex flex-col gap-2"
+                              style={{background:BG.sectionA,borderColor:BG.inputBorder}}>
+                              {(t.notes||[]).length===0 && (
+                                <p className="text-xs text-center py-1" style={{color:BG.muted}}>Sem anotações.</p>
+                              )}
+                              {(t.notes||[]).map(n=>{
+                                const isEN=editTaskN&&editTaskN.tid===t.id&&editTaskN.nid===n.id;
+                                return (
+                                  <div key={n.id} className="flex items-start gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{background:T.p}}/>
+                                    {isEN ? (
+                                      <input autoFocus type="text" value={editTaskN.val}
+                                        onChange={e=>setEditTaskN(p=>({...p,val:e.target.value}))}
+                                        onBlur={saveTaskNote}
+                                        onKeyDown={e=>{if(e.key==='Enter')saveTaskNote();if(e.key==='Escape')setEditTaskN(null);}}
+                                        className="flex-1 text-xs border rounded px-2 py-0.5 focus:outline-none"
+                                        style={{background:BG.inputBg,color:BG.text,borderColor:T.p}}/>
+                                    ) : (
+                                      <span onDoubleClick={()=>setEditTaskN({bid:blk.id,tid:t.id,nid:n.id,val:n.text})}
+                                        title="Duplo clique para editar"
+                                        className="flex-1 text-xs cursor-text" style={{color:BG.text}}>
+                                        {n.text}
+                                      </span>
+                                    )}
+                                    {!isEN && (
+                                      <button onClick={()=>delTaskNote(blk.id,t.id,n.id)} className="hover:text-red-400 shrink-0" style={{color:BG.muted}}>
+                                        <IcoTrash className="w-3 h-3"/>
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                              <div className="flex gap-2 mt-1">
+                                <input type="text" placeholder="Nova anotação..."
+                                  value={newTaskN[t.id]||''}
+                                  onChange={e=>setNewTaskN(p=>({...p,[t.id]:e.target.value}))}
+                                  onKeyDown={e=>e.key==='Enter'&&addTaskNote(blk.id,t.id)}
+                                  className="flex-1 text-xs border rounded-lg px-2 py-1.5 focus:outline-none"
+                                  style={{background:BG.inputBg,color:BG.text,borderColor:BG.inputBorder}}/>
+                                <button onClick={()=>addTaskNote(blk.id,t.id)} className="p-1.5 rounded-lg" style={{background:T.lt,color:T.tx}}>
+                                  <IcoPlus className="w-3 h-3"/>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
                           {/* Popup mover tarefa — botões em vez de select */}
                           {isMov && (
                             <div className="ml-7 rounded-xl border p-2 flex flex-col gap-1"
@@ -426,66 +484,6 @@ function AgendaTab({ agendaData, setAgendaData, currentDate, T, BG }) {
                     </button>
                   </div>
 
-                  {/* Botão notas do bloco */}
-                  <button onClick={()=>toggleNotes(blk.id)}
-                    className="mt-3 flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg w-full transition-opacity hover:opacity-80"
-                    style={{background:openNotes[blk.id]?T.lt:BG.inputBg, color:openNotes[blk.id]?T.tx:BG.muted, border:`1px solid ${BG.inputBorder}`}}>
-                    <IcoBulb className="w-3.5 h-3.5"/>
-                    Notas do bloco
-                    {(blk.blkNotes||[]).length>0 && (
-                      <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
-                        style={{background:T.p,color:'#fff'}}>{(blk.blkNotes||[]).length}</span>
-                    )}
-                    <span className="ml-auto text-[10px]">{openNotes[blk.id]?'▲':'▼'}</span>
-                  </button>
-
-                  {/* Painel notas do bloco */}
-                  {openNotes[blk.id] && (
-                    <div className="mt-2 rounded-xl border p-3 flex flex-col gap-2"
-                      style={{background:BG.sectionA,borderColor:BG.inputBorder}}>
-                      {(blk.blkNotes||[]).length===0 && (
-                        <p className="text-xs text-center py-2" style={{color:BG.muted}}>Sem notas neste bloco.</p>
-                      )}
-                      {(blk.blkNotes||[]).map(n=>{
-                        const isEN = editBlkN&&editBlkN.bid===blk.id&&editBlkN.nid===n.id;
-                        return (
-                          <div key={n.id} className="flex items-start gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{background:T.p}}/>
-                            {isEN ? (
-                              <input autoFocus type="text" value={editBlkN.val}
-                                onChange={e=>setEditBlkN(p=>({...p,val:e.target.value}))}
-                                onBlur={saveBlkNote}
-                                onKeyDown={e=>{if(e.key==='Enter')saveBlkNote();if(e.key==='Escape')setEditBlkN(null);}}
-                                className="flex-1 text-xs border rounded px-2 py-0.5 focus:outline-none"
-                                style={{background:BG.inputBg,color:BG.text,borderColor:T.p}}/>
-                            ) : (
-                              <span onDoubleClick={()=>setEditBlkN({bid:blk.id,nid:n.id,val:n.text})}
-                                title="Duplo clique para editar"
-                                className="flex-1 text-xs cursor-text" style={{color:BG.text}}>
-                                {n.text}
-                              </span>
-                            )}
-                            {!isEN && (
-                              <button onClick={()=>delBlkNote(blk.id,n.id)} className="hover:text-red-400 transition-colors shrink-0" style={{color:BG.muted}}>
-                                <IcoTrash className="w-3.5 h-3.5"/>
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                      <div className="flex gap-2 mt-1">
-                        <input type="text" placeholder="Nova nota..."
-                          value={newBlkNote[blk.id]||''}
-                          onChange={e=>setNewBlkNote(p=>({...p,[blk.id]:e.target.value}))}
-                          onKeyDown={e=>e.key==='Enter'&&addBlkNote(blk.id)}
-                          className="flex-1 text-xs border rounded-lg px-2 py-1.5 focus:outline-none"
-                          style={{background:BG.inputBg,color:BG.text,borderColor:BG.inputBorder}}/>
-                        <button onClick={()=>addBlkNote(blk.id)} className="p-1.5 rounded-lg" style={{background:T.lt,color:T.tx}}>
-                          <IcoPlus className="w-3.5 h-3.5"/>
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             ))}
