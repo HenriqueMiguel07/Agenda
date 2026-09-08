@@ -133,9 +133,14 @@ function AgendaTab({ agendaData, setAgendaData, currentDate, T, BG }) {
   const [openTaskN, setOpenTaskN] = useState({});   // tid → bool
   const [newTaskN,  setNewTaskN]  = useState({});   // tid → text
   const [editTaskN, setEditTaskN] = useState(null); // {bid, tid, nid, val}
+  const [openBlkTaskN,   setOpenBlkTaskN]   = useState({}); // tid → bool (form tasks)
+  const [blkTaskNoteText,setBlkTaskNoteText]= useState({}); // tid → text (form tasks)
+  const [editBlkTitle, setEditBlkTitle] = useState(null);  // {bid, val}
+  const [recPropModal, setRecPropModal] = useState(null);  // {bid, recId, changes}
 
   useEffect(() => {
     setNewTask({}); setBlkStart(''); setBlkEnd(''); setBlkTitle(''); setBlkTasks([]); setBlkNewT(''); setRecType('none');
+    setOpenBlkTaskN({}); setBlkTaskNoteText({}); setEditBlkTitle(null); setRecPropModal(null);
   }, [currentDate]);
 
   const empty = { blocks:[], notes:[], diary:{learned:'',improved:''} };
@@ -150,10 +155,17 @@ function AgendaTab({ agendaData, setAgendaData, currentDate, T, BG }) {
 
   const addBlkTask = () => {
     if (!blkNewT.trim()) return;
-    setBlkTasks(p=>[...p, {id:Date.now(), text:blkNewT.trim(), isCompleted:false, isImportant:false}]);
+    setBlkTasks(p=>[...p, {id:Date.now(), text:blkNewT.trim(), isCompleted:false, notes:[]}]);
     setBlkNewT('');
   };
   const delBlkTask = (id) => setBlkTasks(p=>p.filter(t=>t.id!==id));
+  const addBlkTaskNote = (tid) => {
+    const txt=(blkTaskNoteText[tid]||'').trim();
+    if (!txt) return;
+    setBlkTasks(p=>p.map(t=>t.id===tid?{...t,notes:[...(t.notes||[]),{id:Date.now(),text:txt}]}:t));
+    setBlkTaskNoteText(p=>({...p,[tid]:''}));
+  };
+  const delBlkTaskNote = (tid,nid) => setBlkTasks(p=>p.map(t=>t.id===tid?{...t,notes:(t.notes||[]).filter(n=>n.id!==nid)}:t));
 
   const addBlock = () => {
     if (!blkStart || !blkEnd) return;
@@ -266,6 +278,33 @@ function AgendaTab({ agendaData, setAgendaData, currentDate, T, BG }) {
     setEditTaskN(null);
   };
 
+  const applyRecProp = (recId, changes) => {
+    setAgendaData(prev => {
+      const next = {};
+      Object.entries(prev).forEach(([ds, d]) => {
+        if (ds >= currentDate) {
+          const blocks = (d.blocks||[]).map(b => b.recId===recId ? {...b, ...changes} : b);
+          next[ds] = { ...d, blocks };
+        } else { next[ds] = d; }
+      });
+      return next;
+    });
+    setRecPropModal(null);
+  };
+
+  const saveBlkTitle = (bid, val, recId) => {
+    updBlocks(p=>p.map(b=>b.id===bid?{...b,title:val}:b));
+    setEditBlkTitle(null);
+    if (recId) setRecPropModal({bid, recId, changes:{title:val}});
+  };
+
+  const blurTimeRec = (bid, f, v, recId) => {
+    const fv = fmtTime(v);
+    setTime(bid, f, fv);
+    updBlocks(p=>sortBlks(p));
+    if (recId) setRecPropModal({bid, recId, changes:{[f]:fv}});
+  };
+
   const moveBlockToDay = (bid, targetDate) => {
     if (!targetDate || targetDate===currentDate) { setMovingBlk(null); return; }
     setAgendaData(prev => {
@@ -310,14 +349,14 @@ function AgendaTab({ agendaData, setAgendaData, currentDate, T, BG }) {
                   <div className="flex items-center text-sm font-bold" style={{color:T.tx}}>
                     <input type="text" value={blk.startTime}
                       onChange={e=>setTime(blk.id,'startTime',e.target.value)}
-                      onBlur={e=>blurTime(blk.id,'startTime',e.target.value)}
+                      onBlur={e=>blurTimeRec(blk.id,'startTime',e.target.value,blk.recId)}
                       className="w-9 text-right bg-transparent focus:bg-white focus:outline-none rounded text-xs"/>h
                   </div>
                   <div className="w-0.5 flex-1 my-1 rounded-full" style={{background:T.lt,minHeight:12}}/>
                   <div className="flex items-center text-sm font-bold" style={{color:T.tx}}>
                     <input type="text" value={blk.endTime}
                       onChange={e=>setTime(blk.id,'endTime',e.target.value)}
-                      onBlur={e=>blurTime(blk.id,'endTime',e.target.value)}
+                      onBlur={e=>blurTimeRec(blk.id,'endTime',e.target.value,blk.recId)}
                       className="w-9 text-right bg-transparent focus:bg-white focus:outline-none rounded text-xs"/>h
                   </div>
                 </div>
@@ -331,9 +370,16 @@ function AgendaTab({ agendaData, setAgendaData, currentDate, T, BG }) {
                         <IcoRepeat className="w-3 h-3"/>Recorrente
                       </span>
                     )}
-                    {blk.title && (
-                      <span className="text-sm font-semibold" style={{color:BG.text}}>{blk.title}</span>
-                    )}
+                    {blk.title && (editBlkTitle?.bid===blk.id ? (
+                      <input autoFocus type="text" value={editBlkTitle.val}
+                        onChange={e=>setEditBlkTitle(p=>({...p,val:e.target.value}))}
+                        onBlur={()=>saveBlkTitle(blk.id, editBlkTitle.val, blk.recId)}
+                        onKeyDown={e=>{if(e.key==='Enter')saveBlkTitle(blk.id, editBlkTitle.val, blk.recId);if(e.key==='Escape')setEditBlkTitle(null);}}
+                        className="text-sm font-semibold border-b bg-transparent focus:outline-none"
+                        style={{color:BG.text,borderColor:T.p}}/>
+                    ) : (
+                      <span className="text-sm font-semibold cursor-text" onDoubleClick={()=>setEditBlkTitle({bid:blk.id,val:blk.title})} title="Duplo clique para editar título" style={{color:BG.text}}>{blk.title}</span>
+                    ))}
                   </div>
                   {/* Botões topo direita */}
                   <div className="absolute top-2 right-2 flex gap-1">
@@ -547,13 +593,51 @@ function AgendaTab({ agendaData, setAgendaData, currentDate, T, BG }) {
             {blkTasks.length>0 && (
               <ul className="space-y-1">
                 {blkTasks.map(t=>(
-                  <li key={t.id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm"
+                  <li key={t.id} className="rounded-lg text-sm overflow-hidden"
                     style={{background:BG.blockBg,color:BG.text}}>
-                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{background:T.p}}/>
-                    <span className="flex-1">{t.text}</span>
-                    <button onClick={()=>delBlkTask(t.id)} className="hover:text-red-400 transition-colors shrink-0" style={{color:BG.muted}}>
-                      <IcoX className="w-3.5 h-3.5"/>
-                    </button>
+                    <div className="flex items-center gap-2 px-3 py-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{background:T.p}}/>
+                      <span className="flex-1">{t.text}</span>
+                      {(t.notes||[]).length>0 && !openBlkTaskN[t.id] && (
+                        <span className="text-[10px] px-1 py-0.5 rounded-full font-semibold shrink-0"
+                          style={{background:T.lt,color:T.tx}}>{(t.notes||[]).length}</span>
+                      )}
+                      <button onClick={()=>setOpenBlkTaskN(p=>({...p,[t.id]:!p[t.id]}))} title="Anotações"
+                        className="shrink-0 transition-colors"
+                        style={{color:openBlkTaskN[t.id]?T.p:'#cbd5e1'}}>
+                        <IcoBulb className="w-3.5 h-3.5"/>
+                      </button>
+                      <button onClick={()=>delBlkTask(t.id)} className="hover:text-red-400 transition-colors shrink-0" style={{color:BG.muted}}>
+                        <IcoX className="w-3.5 h-3.5"/>
+                      </button>
+                    </div>
+                    {openBlkTaskN[t.id] && (
+                      <div className="px-3 pb-2 flex flex-col gap-1" style={{borderTop:`1px solid ${BG.inputBorder}`}}>
+                        {(t.notes||[]).length===0 && (
+                          <p className="text-xs py-1" style={{color:BG.muted}}>Sem anotações.</p>
+                        )}
+                        {(t.notes||[]).map(n=>(
+                          <div key={n.id} className="flex items-center gap-1.5 pt-1">
+                            <span className="w-1 h-1 rounded-full shrink-0" style={{background:T.p}}/>
+                            <span className="flex-1 text-xs" style={{color:BG.text}}>{n.text}</span>
+                            <button onClick={()=>delBlkTaskNote(t.id,n.id)} className="hover:text-red-400 shrink-0" style={{color:BG.muted}}>
+                              <IcoTrash className="w-3 h-3"/>
+                            </button>
+                          </div>
+                        ))}
+                        <div className="flex gap-1.5 mt-1">
+                          <input type="text" placeholder="Nova anotação..."
+                            value={blkTaskNoteText[t.id]||''}
+                            onChange={e=>setBlkTaskNoteText(p=>({...p,[t.id]:e.target.value}))}
+                            onKeyDown={e=>e.key==='Enter'&&addBlkTaskNote(t.id)}
+                            className="flex-1 text-xs border rounded-lg px-2 py-1 focus:outline-none"
+                            style={{background:BG.inputBg,color:BG.text,borderColor:BG.inputBorder}}/>
+                          <button onClick={()=>addBlkTaskNote(t.id)} className="p-1 rounded-lg" style={{background:T.lt,color:T.tx}}>
+                            <IcoPlus className="w-3 h-3"/>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -648,6 +732,30 @@ function AgendaTab({ agendaData, setAgendaData, currentDate, T, BG }) {
               <button onClick={confirmRec}
                 className="px-4 py-2 text-sm text-white rounded-lg hover:opacity-90"
                 style={{background:T.p}}>Confirmar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {recPropModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{background:'rgba(0,0,0,0.45)'}}>
+          <div className="rounded-2xl shadow-2xl p-6 w-full max-w-sm fade" style={{background:BG.cardBg}}>
+            <h3 className="text-base font-bold mb-2 flex items-center gap-2" style={{color:T.tx}}>
+              <IcoRepeat className="w-5 h-5"/> Alterar recorrências
+            </h3>
+            <p className="text-sm mb-5" style={{color:BG.muted}}>
+              Deseja aplicar esta alteração a todos os blocos recorrentes futuros com a mesma recorrência?
+            </p>
+            <div className="flex gap-3 justify-end flex-wrap">
+              <button onClick={()=>setRecPropModal(null)}
+                className="px-4 py-2 text-sm border rounded-lg" style={{borderColor:BG.inputBorder,color:BG.text}}>
+                Só este bloco
+              </button>
+              <button onClick={()=>applyRecProp(recPropModal.recId, recPropModal.changes)}
+                className="px-4 py-2 text-sm text-white rounded-lg hover:opacity-90"
+                style={{background:T.p}}>
+                Todos os futuros
+              </button>
             </div>
           </div>
         </div>
